@@ -24,6 +24,7 @@ mongoose.connect("mongodb://localhost:27017/userDB",{useNewUrlParser: true})
 //  email: String,
 //  password: String
 //}
+
 //levelling up especially when authentication is involved
 const userSchema = new mongoose.Schema({
   email: String,
