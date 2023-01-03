@@ -1,4 +1,6 @@
 //jshint esversion:6
+//important you put it at the top of the screen
+require('dotenv').config()
 const express = require('express');
 const bodyParser = require("body-parser")
 const ejs = require("ejs");
@@ -6,6 +8,9 @@ const mongoose = require("mongoose")
 const encrypt = require("mongoose-encryption")
 
 const app = express();
+
+console.log(process.env.API_KEY)
+
 app.use(express.static("public"))
 app.set('view engine', 'ejs')
 app.use(bodyParser.urlencoded({
@@ -26,8 +31,7 @@ const userSchema = new mongoose.Schema({
 })
 
 
-const secret = "This is our littlesecret."
-userSchema.plugin(encrypt, {secret: secret, encryptedFields: ['password']})
+userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ['password']})
 
 
 
