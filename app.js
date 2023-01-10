@@ -9,19 +9,40 @@ const mongoose = require("mongoose")
 //const encrypt = require("mongoose-encryption")
 //required for level 3 security
 //const md5 = require('md5')
-
+//using bcrypt for level 4 security
+//const bcrypt = require("bcrypt")
+//const saltRounds = 10;
+const session = require('express-session')
+const passport = require('passport')
+const passportLocalMongoose = require('passport-local-mongoose')
 
 const app = express();
 //console.log(md5("1234567890"))
 //console.log(process.env.API_KEY)
-
+ 
 app.use(express.static("public"))
 app.set('view engine', 'ejs')
 app.use(bodyParser.urlencoded({
-    extended:true
+  extended:true
 }))
+
+
+app.use(session({
+  secret:"Our little Secret.",
+  resave: false,
+  saveUninitialized:false
+}))
+app.use(passport.initialize());
+app.use(passport.session())
+
+
 //connecting to the database
 mongoose.connect("mongodb://localhost:27017/userDB",{useNewUrlParser: true})
+
+//mongoose.set("useCreateIndex", true)
+
+
+
 
 //Basic Data base Schema
 //const userSchema = {
@@ -35,13 +56,20 @@ const userSchema = new mongoose.Schema({
   password: String
 })
 
+userSchema.plugin(passportLocalMongoose);
+//Model 
+const User = new mongoose.model("User", userSchema)
+
+
+passport.use(User.createStrategy())
+passport.serializeUser(User.serializeUser())
+passport.deserializeUser(User.deserializeUser())
+
 //for level 2 encryption
 //userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ['password']})
 
 
 
-//Model 
-const User = new mongoose.model("User", userSchema)
 
 
 //Routing home
@@ -61,49 +89,128 @@ app.get("/register", function(req, res){
 })
 
 
-//Dealing with the basic database
-app.post("/register", function(req, res){
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  })
-  newUser.save(function(err){
-    if(err){
-      console.log(err)
-    }else{
-      res.render("secrets")
+app.get('/secrets', function(req, res){
+  if (req.isAuthenticated()){
+    res.render("secrets")
+  }else{
+    res.redirect("/login")
+  }
+})
+app.get('/logout', function(req, res, next) {
+  req.logout(function(err) {
+    if (err) { 
+      return next(err); 
+      }
+    res.redirect('/');
+  });
+});
 
+app.post("/register", function(req, res){
+  User.register({username:req.body.username}, req.body.password, function(err, user){
+    if (err){
+      console.log(err)
+      res.redirect("/register")
+    }else{
+      passport.authenticate("local")(req, res, function(){
+        res.redirect('/secrets')
+      })
     }
+
   })
+
 })
 
-//Dealing with routing when u log in
 app.post("/login", function(req, res){
-  const username = req.body.username
-  const password = md5(req.body.password)
+  const user = new User({
+    username: req.body.username,
+    password: req.body.password
+  })
 
-  User.findOne({email:username}, function(err, foundUser){
+  req.login(user, function(err){
     if (err){
       console.log(err)
     }else{
-      if(foundUser){
-        if (foundUser.password === password){
-          res.render("secrets")
-        }
-
-      }
-
+      passport.authenticate("local")(req, res, function(){
+        res.redirect("/secrets")
+      })
     }
-      
-    
   })
 })
+//Dealing with the basic database
+//app.post("/register", function(req, res){
+//  bcrypt.hash(req.body.password, saltRounds, function(err, hash){
+//    const newUser = new User({
+//      email: req.body.username,
+//      password: hash
+//    })
+//    newUser.save(function(err){
+//      if(err){
+//        console.log(err)
+//      }else{
+//        res.render("secrets")
+//  
+//      }
+//    })
+//  })
+  
+//})
+
+
+//for md 5 authentication
+//app.post("/register", function(req, res){
+  
+//  const newUser = new User({
+//    email: req.body.username,
+//    password: md5(req.body.password)
+//  })
+//  newUser.save(function(err){
+//    if(err){
+//      console.log(err)
+//    }else{
+//      res.render("secrets")
+
+//    }
+//  })
+//})
+
+//Dealing with routing when u log in
+//app.post("/login", function(req, res){
+//  const username = req.body.username
+//  const password = md5(req.body.password)
+
+//  User.findOne({email:username}, function(err, foundUser){
+//    if (err){
+//      console.log(err)
+//    }else{
+//     if(foundUser){
+//        bcrypt.compare(password, foundUser.password, function(err, result){
+
+//          if(result === true){
+//            res.render("secrets")
+
+//          }
+
+//        })
+//        //if (foundUser.password === password){
+        
+//        }
+
+//      }
+
+    
+      
+    
+//  })
+//})
+
+//Logout Button
+
 
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');
 });
 
-app.listen(8000, () => {
+app.listen(8001, () => {
   console.log('Server listening on port 8000');
 });
