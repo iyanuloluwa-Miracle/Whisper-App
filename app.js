@@ -15,6 +15,9 @@ const mongoose = require("mongoose")
 const session = require('express-session')
 const passport = require('passport')
 const passportLocalMongoose = require('passport-local-mongoose')
+//For  very important the authentication
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
 
 const app = express();
 //console.log(md5("1234567890"))
@@ -64,6 +67,19 @@ const User = new mongoose.model("User", userSchema)
 passport.use(User.createStrategy())
 passport.serializeUser(User.serializeUser())
 passport.deserializeUser(User.deserializeUser())
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRETS,
+  callbackURL: "http://localhost:8001/auth/goggle/secrets",
+  
+},
+function(accessToken, refreshToken, profile, cb) {
+  User.findOrCreate({ googleId: profile.id }, function (err, user) {
+    return cb(err, user);
+  });
+}
+));
 
 //for level 2 encryption
 //userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ['password']})
@@ -120,6 +136,7 @@ app.post("/register", function(req, res){
 
 })
 
+
 app.post("/login", function(req, res){
   const user = new User({
     username: req.body.username,
@@ -136,6 +153,7 @@ app.post("/login", function(req, res){
     }
   })
 })
+
 //Dealing with the basic database
 //app.post("/register", function(req, res){
 //  bcrypt.hash(req.body.password, saltRounds, function(err, hash){
@@ -205,11 +223,10 @@ app.post("/login", function(req, res){
 
 //Logout Button
 
-
-
 app.get('/', (req, res) => {
   res.send('Hello, World!');
 });
+
 
 app.listen(8001, () => {
   console.log('Server listening on port 8000');
