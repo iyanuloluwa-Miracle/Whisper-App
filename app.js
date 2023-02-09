@@ -17,6 +17,9 @@ const passport = require('passport')
 const passportLocalMongoose = require('passport-local-mongoose')
 //For  very important the authentication
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate')
+
+
 
 
 const app = express();
@@ -56,25 +59,38 @@ mongoose.connect("mongodb://localhost:27017/userDB",{useNewUrlParser: true})
 //levelling up especially when authentication is involved
 const userSchema = new mongoose.Schema({
   email: String,
-  password: String
+  password: String,
+  googleId: String
 })
 
+
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate)
 //Model 
 const User = new mongoose.model("User", userSchema)
 
-
+  
 passport.use(User.createStrategy())
-passport.serializeUser(User.serializeUser())
-passport.deserializeUser(User.deserializeUser())
+ 
+passport.serializeUser(function(user, done){
+  done(null, user.id)
+})
+
+passport.deserializeUser(function(id, done){
+  User.findById(id, function(err, user){
+    done(err,user)
+  })
+})
+
 
 passport.use(new GoogleStrategy({
   clientID: process.env.CLIENT_ID,
   clientSecret: process.env.CLIENT_SECRETS,
-  callbackURL: "http://localhost:8001/auth/goggle/secrets",
-  
+  callbackURL: "http://localhost:8001/auth/google/secrets",
+  userProfileURL :"https://www.googleapis.com/oauth2/v3/userinfo"
 },
 function(accessToken, refreshToken, profile, cb) {
+  
   User.findOrCreate({ googleId: profile.id }, function (err, user) {
     return cb(err, user);
   });
@@ -93,6 +109,17 @@ app.get("/", function(req, res){
     res.render("home")
 })
 
+//using 
+app.get("/auth/google",
+  passport.authenticate("google", {  scope: ['profile']} )
+)
+
+app.get('/auth/goggle/secrets', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect secrets.
+    res.redirect('secrets');
+  });
 
 //Routing to login
 app.get("/login", function(req, res){
@@ -229,5 +256,5 @@ app.get('/', (req, res) => {
 
 
 app.listen(8001, () => {
-  console.log('Server listening on port 8000');
+  console.log('Server listening on port 8001');
 });
